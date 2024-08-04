@@ -33,9 +33,10 @@ func LoadEnvironmentVariables() {
 		Port = 9000
 	}
 
-	DatabaseConnectionString = fmt.Sprintf("%s:%s@tcp(127.0.0.1:3307)/%s?charset=utf8&parseTime=True&loc=Local",
+	DatabaseConnectionString = fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_HOST"),
 		os.Getenv("DB_NAME"),
 	)
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))
