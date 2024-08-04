@@ -20,6 +20,7 @@ func JSON(w http.ResponseWriter, statusCode int, data interface{}) {
 
 // Retorna um erro em formato JSON
 func Erro(w http.ResponseWriter, statusCode int, erro error) {
+	log.Printf("%v", erro)
 	JSON(w, statusCode, struct {
 		Erro string `json:"erro"`
 	}{
