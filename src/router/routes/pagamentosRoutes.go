@@ -12,10 +12,10 @@ var pagamentosRoutes = []Rota{
 		Function:        controllers.CopiaECola,
 		IsAuthenticated: false,
 	},
-	// {
-	// 	URI:             "/pagamentos/qrcode_decode",
-	// 	Method:          http.MethodPost,
-	// 	Function:        controllers.QrCode,
-	// 	IsAuthenticated: false,
-	// },
+	{
+		URI:             "/pagamentos/qrcode_decode",
+		Method:          http.MethodPost,
+		Function:        controllers.PagamentoQRCodeDecode,
+		IsAuthenticated: false,
+	},
 }
