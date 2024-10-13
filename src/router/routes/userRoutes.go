@@ -7,9 +7,15 @@ import (
 
 var userRoutes = []Rota{
 	{
-		URI:             "/users",
+		URI:             "/cadastrar",
 		Method:          http.MethodPost,
 		Function:        controllers.CreateUser,
+		IsAuthenticated: false,
+	},
+	{
+		URI:             "/pagamentos/copiacola",
+		Method:          http.MethodGet,
+		Function:        controllers.CopiaECola,
 		IsAuthenticated: false,
 	},
 	{
@@ -22,12 +28,6 @@ var userRoutes = []Rota{
 		URI:             "/users",
 		Method:          http.MethodGet,
 		Function:        controllers.SearchUserByName,
-		IsAuthenticated: true,
-	},
-	{
-		URI:             "/users/{userId}",
-		Method:          http.MethodGet,
-		Function:        controllers.GetUserById,
 		IsAuthenticated: true,
 	},
 }

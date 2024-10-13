@@ -9,6 +9,7 @@ import (
 	"api/src/security"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -47,8 +48,15 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if erro = security.VerifyPassword(userSaveInDatabase.Password, user.Password); erro != nil {
-		responses.Erro(w, http.StatusUnauthorized, erro)
+	// if erro = security.VerifyPassword(userSaveInDatabase.Senha, user.Senha); erro != nil {
+	// 	responses.Erro(w, http.StatusUnauthorized, erro)
+	// 	return
+	// }
+
+	correctPassword := security.VerifyPassword(userSaveInDatabase.Senha, user.Senha)
+
+	if !correctPassword {
+		responses.Erro(w, http.StatusInternalServerError, fmt.Errorf("senha Incorreta"))
 		return
 	}
 
