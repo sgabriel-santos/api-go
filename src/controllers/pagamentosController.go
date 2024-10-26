@@ -5,6 +5,7 @@ import (
 	"api/src/models"
 	"api/src/repositories"
 	"api/src/responses"
+	"api/src/security"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -140,6 +141,11 @@ func PagamentoQRCodeDecode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.Status != 1 {
+		responses.Erro(w, http.StatusNotFound, fmt.Errorf("usuário com id %d está inativo", userId))
+		return
+	}
+
 	// Obter as configurações (client_id e client_secret) do banco de dados
 	config, err := configRepository.GetConfigById(1)
 	if err != nil {
@@ -162,10 +168,10 @@ func PagamentoQRCodeDecode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Armazenar as informações decodificadas no banco de dados (tabela pagamentos_log)
-	logData := models.PagamentoLog{
+	logData := models.PagamentoLogModel{
 		IDUsuario:    uint64(userId),
 		Method:       "pagamentos_qrcode",
-		Data:         decodedData.Data.Data,
+		Data:         &decodedData.Data.Data,
 		DataID:       decodedData.Data.Reference,
 		Code:         time.Now().Format("20060102150405"),
 		DataCadastro: time.Now(), // Define o timestamp atual para DataCadastro
@@ -252,4 +258,136 @@ func decodeQRCodeWithExternalService(token, codigo string) (DecodedQRCode, error
 
 	// Retornar os dados decodificados
 	return decodedQRCode, nil
+}
+
+// PagamentoQRCode realiza o pagamento de um PIX via copia e cola
+func PagamentoQRCode(w http.ResponseWriter, r *http.Request) {
+	db, err := database.Connect()
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	// Repositório para interagir com o banco de dados
+	usuarioRepository := repositories.NewUserRepository(db)
+	pagamentoLogRepository := repositories.NewPagamentoLogRepository(db)
+	balancaRepository := repositories.NewBalancaRepository(db)
+	pagamentoRepository := repositories.NewPagamentoRepository(db)
+
+	id := r.Header.Get("id")
+	userId, err := strconv.Atoi(id)
+
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user, err := usuarioRepository.GetUserByID(uint64(userId))
+
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if user.ID == 0 {
+		responses.Erro(w, http.StatusNotFound, fmt.Errorf("usuário com id %d não encontrado", userId))
+		return
+	}
+
+	if user.Status != 1 {
+		responses.Erro(w, http.StatusNotFound, fmt.Errorf("usuário com id %d está inativo", userId))
+		return
+	}
+
+	// Ler os dados da requisição
+	var dados struct {
+		Timestamp   string  `json:"timestamp"`
+		Reference   string  `json:"reference"`
+		Value       float64 `json:"value"`
+		Pin         string  `json:"pin"`
+		Description string  `json:"description"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&dados); err != nil {
+		responses.Erro(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Verificar se os dados necessários estão presentes
+	if dados.Timestamp == "" || dados.Reference == "" || dados.Value <= 0 || dados.Pin == "" {
+		responses.Erro(w, http.StatusBadRequest, errors.New("dados incorretos"))
+		return
+	}
+
+	if !security.VerifyPassword(user.Pin, dados.Pin) {
+		responses.Erro(w, http.StatusUnauthorized, errors.New("PIN informado está incorreto"))
+		return
+	}
+
+	// Verificar se já existe um pagamento logado para o mesmo código (timestamp) e referência
+	pagamentoLog, err := pagamentoLogRepository.GetPagamentoLog(uint64(userId), dados.Timestamp, dados.Reference)
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if pagamentoLog == nil {
+		responses.Erro(w, http.StatusBadRequest, errors.New("erro: Dados Incorretos"))
+		return
+	}
+
+	pagamento, err := pagamentoRepository.GetPagamento(uint64(userId), dados.Reference)
+
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if pagamento != nil {
+		responses.Erro(w, http.StatusBadRequest, errors.New("erro: Pagamento Duplicado"))
+		return
+	}
+
+	// Verificar saldo do usuário
+	saldo, err := balancaRepository.GetSaldoByUsuarioId(uint64(userId))
+	if err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+	if saldo < dados.Value {
+		responses.Erro(w, http.StatusBadRequest, errors.New("erro: Saldo insuficiente"))
+		return
+	}
+
+	// Inserir pagamento
+	status := new(string)
+	*status = "1"
+
+	value := new(string)
+	*value = fmt.Sprintf("%.2f", dados.Value)
+
+	novo_pagamento := models.PagamentoModel{
+		IDUsuario:        userId,
+		Tipo:             2, // Tipo de pagamento PIX
+		Valor:            value,
+		NomeBeneficiario: &user.Nome, // Supomos que o nome vem do usuário
+		Reference:        &dados.Reference,
+		Description:      &dados.Description,
+		Status:           status, // Status inicial
+		DataCadastro:     time.Now(),
+	}
+
+	if err := pagamentoRepository.CreatePagamento(novo_pagamento); err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Debitar saldo do usuário
+	if err := balancaRepository.DebitarSaldo(uint64(userId), dados.Value); err != nil {
+		responses.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, map[string]string{"message": "Pagamento realizado com sucesso"})
 }

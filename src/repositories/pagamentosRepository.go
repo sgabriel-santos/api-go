@@ -169,3 +169,72 @@ func nullTimeToTime(nt sql.NullTime) time.Time {
 	}
 	return time.Time{} // Retorna o valor zero de time.Time
 }
+
+// CreatePagamento insere um novo pagamento no banco de dados
+func (repository Pagamento) CreatePagamento(pagamento models.PagamentoModel) error {
+	// Preparar a query de inserção
+	query := `
+        INSERT INTO pagamentos (id_usuario, tipo, valor, nome_beneficiario, data, data_code, reference, description, status, data_cadastro)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+	// Preparar a inserção
+	stmt, err := repository.db.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	// Executar a inserção com os parâmetros fornecidos
+	_, err = stmt.Exec(
+		pagamento.IDUsuario,
+		pagamento.Tipo,
+		pagamento.Valor,
+		pagamento.NomeBeneficiario,
+		pagamento.Data,
+		pagamento.DataCode,
+		pagamento.Reference,
+		pagamento.Description,
+		pagamento.Status,
+		pagamento.DataCadastro,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Retornar nil se tudo ocorrer bem
+	return nil
+}
+
+// GetPagamento busca um pagamento pelo userID e reference
+func (repository Pagamento) GetPagamento(userID uint64, reference string) (*models.PagamentoModel, error) {
+	var pagamento models.PagamentoModel
+
+	query := `
+        SELECT id_usuario, data, data_code, data_cadastro
+        FROM pagamentos
+        WHERE id_usuario = ? AND tipo = 2 AND reference = ?`
+
+	// Executar a consulta no banco de dados
+	row := repository.db.QueryRow(query, userID, reference)
+
+	// Fazer o scan dos resultados
+	err := row.Scan(
+		&pagamento.IDUsuario,
+		&pagamento.Data,
+		&pagamento.DataCode,
+		&pagamento.DataCadastro,
+	)
+
+	if err != nil {
+		// Se nenhum registro for encontrado, retornar nil (sem erro)
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		// Retornar o erro se ocorrer algum problema durante a consulta
+		return nil, err
+	}
+
+	// Retornar o pagamento encontrado
+	return &pagamento, nil
+}

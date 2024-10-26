@@ -16,7 +16,7 @@ var userRoutes = []Rota{
 		URI:             "/pagamentos/copiacola",
 		Method:          http.MethodGet,
 		Function:        controllers.CopiaECola,
-		IsAuthenticated: false,
+		IsAuthenticated: true,
 	},
 	{
 		URI:             "/verifyUser",
@@ -28,6 +28,18 @@ var userRoutes = []Rota{
 		URI:             "/users",
 		Method:          http.MethodGet,
 		Function:        controllers.SearchUserByName,
+		IsAuthenticated: true,
+	},
+	{
+		URI:             "/timezones",
+		Method:          http.MethodGet,
+		Function:        controllers.ListarTimezones,
+		IsAuthenticated: true,
+	},
+	{
+		URI:             "/config_timezone",
+		Method:          http.MethodPost,
+		Function:        controllers.AtualizarFusoHorario,
 		IsAuthenticated: true,
 	},
 }

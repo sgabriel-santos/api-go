@@ -19,6 +19,9 @@ type Rota struct {
 func ConfigRoutes(r *mux.Router) *mux.Router {
 	routes := userRoutes
 	routes = append(routes, pagamentosRoutes...)
+	routes = append(routes, depositosRoutes...)
+	routes = append(routes, mercadosRoutes...)
+	routes = append(routes, conversoesRoutes...)
 	routes = append(routes, loginRoutes)
 
 	for _, route := range routes {

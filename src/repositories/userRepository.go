@@ -106,7 +106,7 @@ func (repository User) SearchUserByName(name string) ([]models.UserModel, error)
 // Busca usuário do database de dados pelo ID
 func (repository User) GetUserByID(userID uint64) (models.UserModel, error) {
 	row := repository.db.QueryRow(`
-        SELECT id, email, nome, timezone, status
+        SELECT id, email, nome, timezone, status, pin
         FROM usuarios
         WHERE id = ?`, userID)
 
@@ -119,6 +119,7 @@ func (repository User) GetUserByID(userID uint64) (models.UserModel, error) {
 		&user.Nome,
 		&timezone,
 		&user.Status,
+		&user.Pin,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -152,5 +153,55 @@ func (repository User) GetUserByEmail(email string) (models.UserModel, error) {
 	}
 
 	return user, nil
+}
 
+// GetUniqueTimezones busca todos os timezones únicos dos usuários
+func (repository User) GetUniqueTimezones() ([]string, error) {
+	var timezones []string
+
+	// Consulta SQL para obter todos os timezones únicos
+	query := `
+        SELECT DISTINCT timezone
+        FROM usuarios
+        WHERE timezone IS NOT NULL AND timezone != ''
+    `
+
+	// Executar a consulta
+	rows, err := repository.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Percorrer os resultados e adicionar os timezones na lista
+	for rows.Next() {
+		var timezone string
+		if err := rows.Scan(&timezone); err != nil {
+			return nil, err
+		}
+		timezones = append(timezones, timezone)
+	}
+
+	return timezones, nil
+}
+
+// GetSaldoByUsuario busca o saldo disponível para uma moeda específica do usuário
+func (repository User) GetSaldoByUsuario(userID uint64, moeda string) (float64, error) {
+	var saldo float64
+	query := `SELECT valor FROM balancas WHERE id_usuario = ? AND moeda = ?`
+	err := repository.db.QueryRow(query, userID, moeda).Scan(&saldo)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil // Se não houver saldo, retorna 0
+		}
+		return 0, err // Outro erro ocorreu
+	}
+	return saldo, nil
+}
+
+// AtualizarTimezone atualiza o fuso horário de um usuário
+func (repository User) AtualizarTimezone(userID uint64, timezone string) error {
+	query := `UPDATE usuarios SET timezone = ? WHERE id = ?`
+	_, err := repository.db.Exec(query, timezone, userID)
+	return err
 }

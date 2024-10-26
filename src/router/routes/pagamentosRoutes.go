@@ -10,12 +10,18 @@ var pagamentosRoutes = []Rota{
 		URI:             "/pagamentos/copiacola",
 		Method:          http.MethodGet,
 		Function:        controllers.CopiaECola,
-		IsAuthenticated: false,
+		IsAuthenticated: true,
 	},
 	{
-		URI:             "/pagamentos/qrcode_decode",
+		URI:             "/pagamento/qrcode_decode",
 		Method:          http.MethodPost,
 		Function:        controllers.PagamentoQRCodeDecode,
-		IsAuthenticated: false,
+		IsAuthenticated: true,
+	},
+	{
+		URI:             "/pagamento/qrcode",
+		Method:          http.MethodPost,
+		Function:        controllers.PagamentoQRCode,
+		IsAuthenticated: true,
 	},
 }
